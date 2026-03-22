@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+
+
+  data-producer:
+    build:
+      context: ./data-producer
+      dockerfile: Dockerfile
+    container_name: python-data-producer
+    depends_on:
+      - kafka
+    env_file:
+      - .env
+
+  terraform-provisioner:
+    image: hashicorp/terraform:1.7
+    container_name: terraform-provisioner
+    volumes:
+      - ./infrastructure:/workspace
+    working_dir: /workspace
+    env_file:
+      - .env
+    environment:
+      - TF_VAR_bucket_name=${S3_BUCKET_NAME}
+      - TF_VAR_aws_region=${AWS_REGION}
+    entrypoint: >
+      sh -c "
+        terraform init &&
+        terraform apply -auto-approve
+      "
+
+  jobmanager:
+    build:
+      context: ./flink-jobs
+      dockerfile: Dockerfile
+    container_name: flink-jobmanager
+    depends_on:
+      - kafka
+      - terraform-provisioner
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    env_file:
+      - .env
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        classloader.resolve-order: parent-first
+    volumes:
+      - ./flink-jobs/deploy:/opt/flink/usrlib
+
+
+  taskmanager:
+    build:
+      context: ./flink-jobs
+      dockerfile: Dockerfile
+    container_name: flink-taskmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    env_file:
+      - .env
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        classloader.resolve-order: parent-first
+    volumes:
+      - ./flink-jobs/deploy:/opt/flink/usrlib
+
+
+
+  jar-builder:
+    image: maven:3.9.6-eclipse-temurin-11
+    container_name: jar-builder
+    volumes:
+      - ./flink-jobs:/app
+      - maven-cache:/root/.m2
+    working_dir: /app
+    command: /bin/bash -c "mvn clean package -DskipTests && mkdir -p deploy && find target/ -maxdepth 1 -name '*.jar' ! -name 'original-*.jar' -exec cp {} deploy/job.jar ';'"
+
+volumes:
+  maven-cache:

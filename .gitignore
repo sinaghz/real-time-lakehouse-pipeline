@@ -1,0 +1,10 @@
+.env
+flink-jobs/target/
+flink-jobs/deploy/
+**/.terraform/
+*.tfstate*
+*.lock.hcl
+.idea/
+**/dependency-reduced-pom.xml
+.DS_Store
+**/.DS_Store
