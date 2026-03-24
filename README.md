@@ -21,7 +21,7 @@ An end-to-end, containerized streaming data pipeline that ingests real-time even
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/yourusername/real-time-lakehouse-pipeline.git](https://github.com/yourusername/real-time-lakehouse-pipeline.git)
+   git clone https://github.com/yourusername/real-time-lakehouse-pipeline.git
    cd real-time-lakehouse-pipeline
    ```
 2. **Configure Environment Variables:** Copy the example environment file and fill in your AWS credentials and desired S3 bucket name.
