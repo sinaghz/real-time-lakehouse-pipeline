@@ -22,7 +22,7 @@ public class AggregationJob {
             throw new IllegalArgumentException("Missing S3_BUCKET_NAME environment variable! Check .env file.");
         }
 
-        String s3Path = "s3a://" + s3BucketName + "/" + catalogName;
+        String s3Path = "s3://" + s3BucketName + "/" + catalogName;
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(10000);
@@ -46,18 +46,19 @@ public class AggregationJob {
                         ")"
         );
 
-
-            // 5. Configure the Iceberg Catalog (Force-feeding the AWS keys)
         tableEnv.executeSql(
                 "CREATE CATALOG " + catalogName + " WITH (" +
                         "  'type' = 'iceberg'," +
-                        "  'catalog-type' = 'hadoop'," +
-                        "  'warehouse' = '" + s3Path + "'" +
+                        "  'catalog-impl' = 'org.apache.iceberg.aws.glue.GlueCatalog'," +
+                        "  'warehouse' = '" + s3Path + "'," +
+                        "  'io-impl' = 'org.apache.iceberg.aws.s3.S3FileIO'" +
                         ")"
         );
 
         tableEnv.useCatalog(catalogName);
         tableEnv.executeSql("CREATE DATABASE IF NOT EXISTS " + dbName);
+        tableEnv.executeSql("USE " + dbName);
+
 
         String fullTableName = catalogName + "." + dbName + "." + tableName;
 

@@ -52,10 +52,41 @@ docker exec -d flink-jobmanager ./bin/flink run -c com.pipeline.streaming.Aggreg
 3. **Monitor the Pipeline:**
 Navigate to the Flink UI at http://localhost:8081 to watch the jobs process the data streams in real-time.
 
+## 🦆 Querying Data with DuckDB
+
+You can use DuckDB to query the data stored in the Iceberg tables on AWS S3. 
+
+1. **Install DuckDB:** Follow the instructions on the [DuckDB website](https://duckdb.org/docs/installation/) to install DuckDB for your operating system.
+2. **Configure DuckDB:** Run the following commands in the DuckDB CLI or UI to install the AWS extension and connect to your Glue catalog:
+
+```sql
+INSTALL aws;
+LOAD aws;
+
+CREATE SECRET my_aws_creds (
+    TYPE S3,
+    KEY_ID 'your_aws_access_key_here', 
+    SECRET 'your_aws_secret_key_here',
+    REGION 'eu-west-2'
+);
+
+ATTACH 'your_aws_account_id' AS my_glue ( 
+    TYPE iceberg, 
+    ENDPOINT_TYPE 'glue' 
+);
+```
+
+3. **Run Queries:** Once connected, you can query the raw and aggregated data:
+
+```sql
+SELECT * FROM my_glue.raw_db.raw_pageviews LIMIT 10;
+SELECT * FROM my_glue.agg_db.aggregated_pageviews LIMIT 10;
+```
 
 ## 🧹 Teardown
 To stop the pipeline and destroy the containers:
 
 ```Bash
 docker-compose down
+docker-compose run --rm --entrypoint "sh -c 'terraform init && terraform destroy -auto-approve'" terraform-provisioner
 ```
