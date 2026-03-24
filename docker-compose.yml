@@ -47,6 +47,10 @@ services:
     environment:
       - TF_VAR_bucket_name=${S3_BUCKET_NAME}
       - TF_VAR_aws_region=${AWS_REGION}
+      - TF_VAR_environment=${ENVIRONMENT}
+      - TF_VAR_project_name=${PROJECT_NAME}
+      - TF_VAR_agg_db_name=${ICEBERG_AGG_DB}
+      - TF_VAR_raw_db_name=${ICEBERG_RAW_DB}
     entrypoint: >
       sh -c "
         terraform init &&
